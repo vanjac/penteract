@@ -425,11 +425,11 @@ physent *collideplayer; // whether the collection hit a player
 vec collidewall; // just the normal vectors.
 
 const float STAIRHEIGHT = 4.1f;
-const float FLOORZ = 0.867f;
-const float SLOPEZ = 0.5f;
-const float WALLZ = 0.2f;
-extern const float JUMPVEL = 125.0f;
-extern const float GRAVITY = 200.0f;
+const float FLOORZ = 0.867f; // 30 degrees
+const float SLOPEZ = 0.5f; // 60 degrees
+const float WALLZ = 0.2f; // 78 degrees
+extern const float JUMPVEL = 140.0;
+extern const float GRAVITY = 300.0f;
 
 bool ellipseboxcollide(physent *d, const vec &dir, const vec &o, const vec &center, float yaw, float xr, float yr, float hi, float lo)
 {
