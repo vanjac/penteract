@@ -1179,16 +1179,13 @@ void slideagainst(physent *d, vec &dir, const vec &obstacle, bool foundfloor, bo
 
 void switchfloor(physent *d, vec &dir, const vec &floor)
 {
-    if(floor.z >= FLOORZ) d->falling = vec(0, 0, 0);
-
     vec oldvel(d->vel);
     oldvel.add(d->falling);
     if(dir.dot(floor) >= 0)
     {
         if(d->physstate < PHYS_SLIDE || fabs(dir.dot(d->floor)) > 0.01f*dir.magnitude()) return;
-        d->vel.projectxy(floor, 0.0f);
     }
-    else d->vel.projectxy(floor);
+    d->vel.project(floor);
     d->falling.project(floor);
     recalcdir(d, oldvel, dir);
 }
@@ -1755,7 +1752,9 @@ void modifyvelocity(physent *pl, bool local, bool water, bool floating, int curt
         {
             pl->jumping = false;
 
-            pl->vel.z = max(pl->vel.z, JUMPVEL); // physics impulse upwards
+            vec j(pl->floor);
+            j.mul(JUMPVEL);
+            pl->vel.add(j); // physics impulse away from floor
             if(water) { pl->vel.x /= 8.0f; pl->vel.y /= 8.0f; } // dampen velocity change even harder, gives correct water feel
 
             game::physicstrigger(pl, local, 1, 0);
@@ -1790,8 +1789,16 @@ void modifyvelocity(physent *pl, bool local, bool water, bool floating, int curt
         }
         else if(pl->crouching) d.mul(0.4f);
     }
-    float fric = water && !floating ? 20.0f : (pl->physstate >= PHYS_SLOPE || floating ? 6.0f : 30.0f);
-    pl->vel.lerp(d, pl->vel, pow(1 - 1/fric, curtime/20.0f));
+    if (water || floating || pl->crouching)
+    {
+        float fric = water && !floating ? 20.0f : (pl->physstate >= PHYS_SLOPE || floating ? 6.0f : 30.0f);
+        pl->vel.lerp(d, pl->vel, pow(1 - 1/fric, curtime/20.0f));
+    }
+    else
+    {
+        d.mul(curtime / 600.0f);
+        pl->vel.add(d);
+    }
 // old fps friction
 //    float friction = water && !floating ? 20.0f : (pl->physstate >= PHYS_SLOPE || floating ? 6.0f : 30.0f);
 //    float fpsfric = min(curtime/(20.0f*friction), 1.0f);
@@ -1800,6 +1807,8 @@ void modifyvelocity(physent *pl, bool local, bool water, bool floating, int curt
 
 void modifygravity(physent *pl, bool water, int curtime)
 {
+    if (water)
+        return;
     float secs = curtime/1000.0f;
     vec g(0, 0, 0);
     if(pl->physstate == PHYS_FALL) g.z -= GRAVITY*secs;
@@ -1810,19 +1819,7 @@ void modifygravity(physent *pl, bool water, int curtime)
         g.normalize();
         g.mul(GRAVITY*secs);
     }
-    if(!water || !game::allowmove(pl) || (!pl->move && !pl->strafe)) pl->falling.add(g);
-
-    if(water || pl->physstate >= PHYS_SLOPE)
-    {
-        float fric = water ? 2.0f : 6.0f,
-              c = water ? 1.0f : clamp((pl->floor.z - SLOPEZ)/(FLOORZ-SLOPEZ), 0.0f, 1.0f);
-        pl->falling.mul(pow(1 - c/fric, curtime/20.0f));
-// old fps friction
-//        float friction = water ? 2.0f : 6.0f,
-//              fpsfric = friction/curtime*20.0f,
-//              c = water ? 1.0f : clamp((pl->floor.z - SLOPEZ)/(FLOORZ-SLOPEZ), 0.0f, 1.0f);
-//        pl->falling.mul(1 - c/fpsfric);
-    }
+    pl->vel.add(g);
 }
 
 // main physics routine, moves a player/monster for a curtime step
